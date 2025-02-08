@@ -1,4 +1,5 @@
 import datetime
+import plotly.figure_factory as ff
 
 class Task:
     """
@@ -32,10 +33,10 @@ class Task:
         """
         self.completed = True
 
-    def __str__(self):  #Добавлено для удобства
+    def __str__(self):
       return f"Task(name='{self.name}', duration={self.duration}, completed={self.completed})"
 
-    def __repr__(self): #Добавлено для удобства
+    def __repr__(self):
       return self.__str__()
 
 
@@ -89,7 +90,6 @@ class Project:
           max_duration = max(max_duration, get_task_chain_duration(task))
 
       self.end_date = self.start_date + datetime.timedelta(days=max_duration)
-
     def get_gantt_data(self):
         """
         Возвращает данные для построения диаграммы Ганта.
@@ -98,12 +98,26 @@ class Project:
             list: Список словарей, каждый из которых представляет собой
                 данные для одной полосы на диаграмме Ганта.
         """
-        # TODO: Реализовать позже, когда будем строить диаграмму Ганта
-        pass
+        data = []
+        for task in self.tasks:
+            # Находим самую раннюю дату начала для текущей задачи,
+            # основываясь на датах окончания задач-предшественников.
+            if task.dependencies:
+                start = max([dep.end_date for dep in task.dependencies])
+            else:
+                start = self.start_date
 
-    def __str__(self): #Добавлено
+            # Рассчитываем дату окончания текущей задачи.
+            task.start_date = start
+            task.end_date = start + datetime.timedelta(days=task.duration)
+
+            data.append(dict(Task=task.name, Start=task.start_date, Finish=task.end_date, Resource=task.name)) #Resource нужен, если раскрашивать по задачам
+
+        return data
+
+    def __str__(self):
       return f"Project(name='{self.name}', start_date={self.start_date}, end_date={self.end_date}, tasks={self.tasks})"
-    def __repr__(self): # Добавлено
+    def __repr__(self):
       return self.__str__()
 
 
@@ -135,7 +149,22 @@ def create_sample_project():
 
     return project
 
+def create_gantt_chart(project):
+    """
+    Создает диаграмму Ганта для заданного проекта.
+
+    Args:
+        project (Project): Проект, для которого нужно построить диаграмму.
+
+    Returns:
+        plotly.figure_factory._gantt.Figure: Объект диаграммы Ганта.
+    """
+    df = project.get_gantt_data()
+    fig = ff.create_gantt(df, index_col='Resource', show_colorbar=True, group_tasks=True) #Добавлен group_tasks=True
+    return fig
+
 if __name__ == "__main__":
     project = create_sample_project()
-    project.calculate_end_date() # Добавлено вычисление
-    print(project)
+    # project.calculate_end_date() #Удалено, так как теперь это делается внутри get_gantt_data()
+    fig = create_gantt_chart(project)
+    fig.show()
